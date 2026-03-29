@@ -1,5 +1,5 @@
 # ==============================================================
-# Jerney Blog Platform - CD Manifest (Updated for CI + ArgoCD)
+# Jerney Blog Platform - Fixed CD Manifest
 # ==============================================================
 
 apiVersion: v1
@@ -10,6 +10,7 @@ metadata:
     app.kubernetes.io/part-of: jerney
 
 ---
+
 # ---- Database Secret ----
 apiVersion: v1
 kind: Secret
@@ -23,12 +24,13 @@ data:
   POSTGRES_DB: amVybmV5X2Ri
 
 ---
-# ---- StorageClass ----
+
+# ---- StorageClass (FIXED) ----
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: jerney-ebs-sc
-provisioner: ebs.csi.eks.amazonaws.com
+provisioner: ebs.csi.aws.com   # ✅ FIXED
 parameters:
   type: gp3
   encrypted: "true"
@@ -36,6 +38,7 @@ reclaimPolicy: Retain
 volumeBindingMode: WaitForFirstConsumer
 
 ---
+
 # ---- PVC ----
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -51,6 +54,7 @@ spec:
       storage: 10Gi
 
 ---
+
 # ---- DB Deployment ----
 apiVersion: apps/v1
 kind: Deployment
@@ -84,6 +88,7 @@ spec:
             claimName: jerney-db-pvc
 
 ---
+
 # ---- DB Service ----
 apiVersion: v1
 kind: Service
@@ -98,6 +103,7 @@ spec:
       targetPort: 5432
 
 ---
+
 # ---- Backend Deployment ----
 apiVersion: apps/v1
 kind: Deployment
@@ -121,7 +127,7 @@ spec:
             - containerPort: 5000
           env:
             - name: DB_HOST
-              value: "jerney-db"
+              value: jerney-db
             - name: DB_PORT
               value: "5432"
             - name: DB_USER
@@ -141,6 +147,7 @@ spec:
                   key: POSTGRES_DB
 
 ---
+
 # ---- Backend Service ----
 apiVersion: v1
 kind: Service
@@ -155,6 +162,7 @@ spec:
       targetPort: 5000
 
 ---
+
 # ---- Frontend Deployment ----
 apiVersion: apps/v1
 kind: Deployment
@@ -178,6 +186,7 @@ spec:
             - containerPort: 8080
 
 ---
+
 # ---- Frontend Service ----
 apiVersion: v1
 kind: Service
@@ -193,6 +202,7 @@ spec:
       targetPort: 8080
 
 ---
+
 # ---- NetworkPolicy: DB ----
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -214,6 +224,7 @@ spec:
         - port: 5432
 
 ---
+
 # ---- NetworkPolicy: Backend ----
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
