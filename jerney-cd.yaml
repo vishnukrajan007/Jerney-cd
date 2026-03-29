@@ -116,7 +116,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: vishnukrajan007/backend:cf954dc
+          image: vishnukrajan007/backend:3a00f1b9d1f372459f926567779b8d9fc0185e38
           ports:
             - containerPort: 5000
           env:
@@ -173,7 +173,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: vishnukrajan007/frontend:cf954dc
+          image: vishnukrajan007/frontend:3a00f1b9d1f372459f926567779b8d9fc0185e38
           ports:
             - containerPort: 8080
 
