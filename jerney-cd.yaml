@@ -1,6 +1,7 @@
-# ==============================
-# Namespace
-# ==============================
+# ==============================================================
+# Jerney Blog Platform - CD Manifest (Updated for CI + ArgoCD)
+# ==============================================================
+
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -9,9 +10,7 @@ metadata:
     app.kubernetes.io/part-of: jerney
 
 ---
-# ==============================
-# Database Secret
-# ==============================
+# ---- Database Secret ----
 apiVersion: v1
 kind: Secret
 metadata:
@@ -24,23 +23,20 @@ data:
   POSTGRES_DB: amVybmV5X2Ri
 
 ---
-# ==============================
-# StorageClass (EBS - EKS only)
-# ==============================
+# ---- StorageClass ----
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: jerney-ebs-sc
-provisioner: ebs.csi.aws.com
+provisioner: ebs.csi.eks.amazonaws.com
 parameters:
   type: gp3
+  encrypted: "true"
 reclaimPolicy: Retain
 volumeBindingMode: WaitForFirstConsumer
 
 ---
-# ==============================
-# PVC
-# ==============================
+# ---- PVC ----
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -55,9 +51,7 @@ spec:
       storage: 10Gi
 
 ---
-# ==============================
-# PostgreSQL Deployment
-# ==============================
+# ---- DB Deployment ----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -76,11 +70,11 @@ spec:
       containers:
         - name: postgres
           image: postgres:16-alpine
-          ports:
-            - containerPort: 5432
           envFrom:
             - secretRef:
                 name: jerney-db-secret
+          ports:
+            - containerPort: 5432
           volumeMounts:
             - name: db-storage
               mountPath: /var/lib/postgresql/data
@@ -90,9 +84,7 @@ spec:
             claimName: jerney-db-pvc
 
 ---
-# ==============================
-# DB Service
-# ==============================
+# ---- DB Service ----
 apiVersion: v1
 kind: Service
 metadata:
@@ -106,9 +98,7 @@ spec:
       targetPort: 5432
 
 ---
-# ==============================
-# Backend Deployment
-# ==============================
+# ---- Backend Deployment ----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -126,12 +116,12 @@ spec:
     spec:
       containers:
         - name: backend
-          image: vishnukrajan007/backend:latest   # FIXED
+          image: vishnukrajan007/backend:<sha>
           ports:
             - containerPort: 5000
           env:
             - name: DB_HOST
-              value: jerney-db
+              value: "jerney-db"
             - name: DB_PORT
               value: "5432"
             - name: DB_USER
@@ -151,9 +141,7 @@ spec:
                   key: POSTGRES_DB
 
 ---
-# ==============================
-# Backend Service
-# ==============================
+# ---- Backend Service ----
 apiVersion: v1
 kind: Service
 metadata:
@@ -167,9 +155,7 @@ spec:
       targetPort: 5000
 
 ---
-# ==============================
-# Frontend Deployment
-# ==============================
+# ---- Frontend Deployment ----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -187,14 +173,12 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: vishnukrajan007/frontend:latest   # FIXED
+          image: vishnukrajan007/frontend:<sha>
           ports:
             - containerPort: 8080
 
 ---
-# ==============================
-# Frontend Service
-# ==============================
+# ---- Frontend Service ----
 apiVersion: v1
 kind: Service
 metadata:
@@ -207,4 +191,45 @@ spec:
   ports:
     - port: 80
       targetPort: 8080
-      nodePort: 30080
+
+---
+# ---- NetworkPolicy: DB ----
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-policy
+  namespace: jerney
+spec:
+  podSelector:
+    matchLabels:
+      app: jerney-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: jerney-backend
+      ports:
+        - port: 5432
+
+---
+# ---- NetworkPolicy: Backend ----
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-policy
+  namespace: jerney
+spec:
+  podSelector:
+    matchLabels:
+      app: jerney-backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: jerney-frontend
+      ports:
+        - port: 5000
