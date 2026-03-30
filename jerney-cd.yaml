@@ -55,7 +55,7 @@ spec:
 
 ---
 # --------------------------------------------------
-# DB Deployment
+# DB Deployment (FIXED)
 # --------------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
@@ -72,14 +72,19 @@ spec:
       labels:
         app: jerney-db
     spec:
+      securityContext:
+        fsGroup: 999   # Important fix
       containers:
         - name: postgres
           image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
                 name: jerney-db-secret
           ports:
             - containerPort: 5432
+          securityContext:
+            runAsUser: 999   # Important fix
           volumeMounts:
             - name: db-storage
               mountPath: /var/lib/postgresql/data
@@ -90,7 +95,7 @@ spec:
 
 ---
 # --------------------------------------------------
-# DB Service (ClusterIP)
+# DB Service
 # --------------------------------------------------
 apiVersion: v1
 kind: Service
