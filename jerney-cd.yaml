@@ -195,7 +195,7 @@ metadata:
   name: jerney-frontend
   namespace: jerney
 spec:
-  type: LoadBalancer
+  type: NodePort
   selector:
     app: jerney-frontend
   ports:
