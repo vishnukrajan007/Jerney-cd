@@ -244,25 +244,25 @@ metadata:
   name: jerney-ingress
   namespace: jerney
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
     - host: seapinpro.com
       http:
         paths:
-          - path: /
+          - path: /api(/|$)(.*)
             pathType: Prefix
             backend:
               service:
                 name: jerney-frontend
                 port:
-                  number: 80
+                  number: 5000
 
-          - path: /api
+          - path: /
             pathType: Prefix
             backend:
               service:
                 name: jerney-backend
                 port:
-                  number: 5000
+                  number: 80
