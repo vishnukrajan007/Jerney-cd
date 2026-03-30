@@ -1,15 +1,16 @@
-# --------------------------------------------------
-# Namespace
-# --------------------------------------------------
+# ==============================================================
+# Jerney Blog Platform - Fixed CD Manifest
+# ==============================================================
+
 apiVersion: v1
 kind: Namespace
 metadata:
   name: jerney
+  labels:
+    app.kubernetes.io/part-of: jerney
 
 ---
-# --------------------------------------------------
-# Database Secret
-# --------------------------------------------------
+# ---- Database Secret ----
 apiVersion: v1
 kind: Secret
 metadata:
@@ -22,13 +23,11 @@ data:
   POSTGRES_DB: amVybmV5X2Ri
 
 ---
-# --------------------------------------------------
-# StorageClass
-# --------------------------------------------------
+# ---- StorageClass (FIXED) ----
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: jerney-ebs-sc
+  name: jerney-ebs-sc-fixed
 provisioner: ebs.csi.aws.com
 parameters:
   type: gp3
@@ -37,9 +36,7 @@ reclaimPolicy: Retain
 volumeBindingMode: WaitForFirstConsumer
 
 ---
-# --------------------------------------------------
-# PVC
-# --------------------------------------------------
+# ---- PVC ----
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -48,15 +45,13 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: jerney-ebs-sc
+  storageClassName: jerney-ebs-sc-fixed
   resources:
     requests:
       storage: 10Gi
 
 ---
-# --------------------------------------------------
-# DB Deployment (FIXED)
-# --------------------------------------------------
+# ---- DB Deployment ----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -72,31 +67,25 @@ spec:
       labels:
         app: jerney-db
     spec:
-      securityContext:
-        fsGroup: 999   # Important fix
       containers:
         - name: postgres
           image: postgres:16-alpine
-          imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
                 name: jerney-db-secret
           ports:
             - containerPort: 5432
-          securityContext:
-            runAsUser: 999   # Important fix
           volumeMounts:
             - name: db-storage
               mountPath: /var/lib/postgresql/data
+              subPath: pgdata
       volumes:
         - name: db-storage
           persistentVolumeClaim:
             claimName: jerney-db-pvc
 
 ---
-# --------------------------------------------------
-# DB Service
-# --------------------------------------------------
+# ---- DB Service ----
 apiVersion: v1
 kind: Service
 metadata:
@@ -110,9 +99,7 @@ spec:
       targetPort: 5432
 
 ---
-# --------------------------------------------------
-# Backend Deployment
-# --------------------------------------------------
+# ---- Backend Deployment ----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -130,7 +117,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: vishnukrajan007/backend:latest
+          image: vishnukrajan007/backend:32345aa76896e018c4888ea755c087b65a947786
           ports:
             - containerPort: 5000
           env:
@@ -155,26 +142,21 @@ spec:
                   key: POSTGRES_DB
 
 ---
-# --------------------------------------------------
-# Backend Service (LoadBalancer)
-# --------------------------------------------------
+# ---- Backend Service ----
 apiVersion: v1
 kind: Service
 metadata:
   name: jerney-backend
   namespace: jerney
 spec:
-  type: LoadBalancer
   selector:
     app: jerney-backend
   ports:
-    - port: 80
+    - port: 5000
       targetPort: 5000
 
 ---
-# --------------------------------------------------
-# Frontend Deployment
-# --------------------------------------------------
+# ---- Frontend Deployment ----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -192,14 +174,12 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: vishnukrajan007/frontend:latest
+          image: vishnukrajan007/frontend:32345aa76896e018c4888ea755c087b65a947786
           ports:
             - containerPort: 8080
 
 ---
-# --------------------------------------------------
-# Frontend Service (LoadBalancer)
-# --------------------------------------------------
+# ---- Frontend Service ----
 apiVersion: v1
 kind: Service
 metadata:
@@ -211,4 +191,46 @@ spec:
     app: jerney-frontend
   ports:
     - port: 80
-      targetPort: 8080
+      targetPort: 80
+
+---
+# ---- NetworkPolicy: DB ----
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-policy
+  namespace: jerney
+spec:
+  podSelector:
+    matchLabels:
+      app: jerney-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: jerney-backend
+      ports:
+        - port: 5432
+
+---
+# ---- NetworkPolicy: Backend ----
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-policy
+  namespace: jerney
+spec:
+  podSelector:
+    matchLabels:
+      app: jerney-backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: jerney-frontend
+      ports:
+        - port: 5000
