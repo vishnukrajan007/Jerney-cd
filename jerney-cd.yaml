@@ -234,3 +234,24 @@ spec:
               app: jerney-frontend
       ports:
         - port: 5000
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jerney-ingress
+  namespace: jerney
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: seapinpro.com  # 👉 replace with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jerney-frontend
+                port:
+                  number: 80
